@@ -1,49 +1,219 @@
 blueprint:
   name: Shelly Switch Toggle
-  description: >
-    Schaltet Lichter oder Switches via Toggle bei jeder Zustandsänderung
-    eines Shelly binary_sensor Inputs (z.B. Shelly i4, Shelly Plus 1, etc.).
-    Kompatibel mit normalen Wippschaltern (kein Taster).
+  description: Toggle lights and switches with four sun-based profiles (Early, Daytime, Evening, Night) on state change of a Shelly binary_sensor input.
   domain: automation
   author: Julius
+
   input:
     switch_entity:
       name: Shelly Input Sensor
-      description: Der binary_sensor des Shelly-Inputs (z.B. Input 0–3).
+      description: Der binary_sensor des Shelly-Inputs (z.B. Input 0–3). Create one automation per input.
       selector:
         entity:
           domain: binary_sensor
+
     light_target:
-      name: Ziel-Lichter (optional)
-      description: Lichter die getoggelt werden sollen.
-      default: {}
+      name: Target lights (optional)
       selector:
         target:
           entity:
-            - domain:
-                - light
+            domain: light
+      default: {}
+
     switch_target:
-      name: Ziel-Switches (optional)
-      description: Switches die getoggelt werden sollen.
-      default: {}
+      name: Target switches (optional)
       selector:
         target:
           entity:
-            - domain:
-                - switch
+            domain: switch
+      default: {}
 
-mode: single
+    sunrise_after_offset:
+      name: Sunrise offset (+ after sunrise)
+      description: End of Early = sunrise PLUS this offset (e.g. 00:30:00).
+      default: "00:30:00"
+      selector:
+        time: {}
 
-triggers:
-  - trigger: state
+    sunset_before_offset:
+      name: Sunset offset (− before sunset)
+      description: Daytime ends and Evening starts at sunset MINUS this offset (e.g. -00:30:00).
+      default: "-00:30:00"
+      selector:
+        time: {}
+
+    p1_brightness:
+      name: Early Brightness %
+      default: 75
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: "%"
+
+    p1_kelvin:
+      name: Early Color Temp K
+      default: 3000
+      selector:
+        number:
+          min: 1500
+          max: 6500
+          unit_of_measurement: "K"
+
+    p2_brightness:
+      name: Daytime Brightness %
+      default: 100
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: "%"
+
+    p2_kelvin:
+      name: Daytime Color Temp K
+      default: 3500
+      selector:
+        number:
+          min: 1500
+          max: 6500
+          unit_of_measurement: "K"
+
+    p3_brightness:
+      name: Evening Brightness %
+      default: 75
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: "%"
+
+    p3_kelvin:
+      name: Evening Color Temp K
+      default: 3000
+      selector:
+        number:
+          min: 1500
+          max: 6500
+          unit_of_measurement: "K"
+
+    p4_brightness:
+      name: Night Brightness %
+      default: 30
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: "%"
+
+    p4_kelvin:
+      name: Night Color Temp K
+      default: 2000
+      selector:
+        number:
+          min: 1500
+          max: 6500
+          unit_of_measurement: "K"
+
+trigger:
+  - platform: state
     entity_id: !input switch_entity
     to: "on"
-  - trigger: state
+  - platform: state
     entity_id: !input switch_entity
     to: "off"
 
-actions:
-  - action: light.toggle
-    target: !input light_target
-  - action: switch.toggle
-    target: !input switch_target
+variables:
+  lt: !input light_target
+  st: !input switch_target
+  has_lt: "{{ lt != {} }}"
+  has_st: "{{ st != {} }}"
+
+action:
+  - choose:
+      - conditions:
+          - condition: time
+            after: "04:00:00"
+          - condition: sun
+            before: sunrise
+            before_offset: !input sunrise_after_offset
+        sequence:
+          - choose:
+              - conditions: "{{ has_lt }}"
+                sequence:
+                  - service: light.toggle
+                    target: !input light_target
+                    data:
+                      brightness_pct: !input p1_brightness
+                      color_temp_kelvin: !input p1_kelvin
+          - choose:
+              - conditions: "{{ has_st }}"
+                sequence:
+                  - service: switch.toggle
+                    target: !input switch_target
+
+      - conditions:
+          - condition: sun
+            after: sunrise
+            after_offset: !input sunrise_after_offset
+          - condition: sun
+            before: sunset
+            before_offset: !input sunset_before_offset
+        sequence:
+          - choose:
+              - conditions: "{{ has_lt }}"
+                sequence:
+                  - service: light.toggle
+                    target: !input light_target
+                    data:
+                      brightness_pct: !input p2_brightness
+                      color_temp_kelvin: !input p2_kelvin
+          - choose:
+              - conditions: "{{ has_st }}"
+                sequence:
+                  - service: switch.toggle
+                    target: !input switch_target
+
+      - conditions:
+          - condition: sun
+            after: sunset
+            after_offset: !input sunset_before_offset
+          - condition: time
+            before: "23:00:00"
+        sequence:
+          - choose:
+              - conditions: "{{ has_lt }}"
+                sequence:
+                  - service: light.toggle
+                    target: !input light_target
+                    data:
+                      brightness_pct: !input p3_brightness
+                      color_temp_kelvin: !input p3_kelvin
+          - choose:
+              - conditions: "{{ has_st }}"
+                sequence:
+                  - service: switch.toggle
+                    target: !input switch_target
+
+      - conditions:
+          - condition: or
+            conditions:
+              - condition: time
+                after: "23:00:00"
+              - condition: time
+                before: "04:00:00"
+        sequence:
+          - choose:
+              - conditions: "{{ has_lt }}"
+                sequence:
+                  - service: light.toggle
+                    target: !input light_target
+                    data:
+                      brightness_pct: !input p4_brightness
+                      color_temp_kelvin: !input p4_kelvin
+          - choose:
+              - conditions: "{{ has_st }}"
+                sequence:
+                  - service: switch.toggle
+                    target: !input switch_target
+
+mode: single
