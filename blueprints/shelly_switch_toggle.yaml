@@ -39,20 +39,14 @@ triggers:
   - platform: state
     entity_id: !input switch_entity
     to: "on"
+    id: "switch_toggled"
   - platform: state
     entity_id: !input switch_entity
     to: "off"
+    id: "switch_toggled"
 
 actions:
-  - if:
-      - condition: template
-        value_template: "{{ light_target | length > 0 }}"
-    then:
-      - action: light.toggle
-        target: !input light_target
-  - if:
-      - condition: template
-        value_template: "{{ switch_target | length > 0 }}"
-    then:
-      - action: switch.toggle
-        target: !input switch_target
+  - action: light.toggle
+    target: !input light_target
+  - action: switch.toggle
+    target: !input switch_target
