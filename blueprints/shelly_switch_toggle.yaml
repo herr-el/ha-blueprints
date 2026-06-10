@@ -35,17 +35,15 @@ blueprint:
 
 mode: single
 
-triggers:
-  - platform: state
+trigger:
+  - trigger: state
     entity_id: !input switch_entity
     to: "on"
-    id: "switch_toggled"
-  - platform: state
+  - trigger: state
     entity_id: !input switch_entity
     to: "off"
-    id: "switch_toggled"
 
-actions:
+action:
   - action: light.toggle
     target: !input light_target
   - action: switch.toggle
