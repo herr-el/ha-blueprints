@@ -1,0 +1,58 @@
+blueprint:
+  name: Shelly Switch Toggle
+  description: >
+    Schaltet Lichter oder Switches via Toggle bei jeder Zustandsänderung
+    eines Shelly binary_sensor Inputs (z.B. Shelly i4, Shelly Plus 1, etc.).
+    Kompatibel mit normalen Wippschaltern (kein Taster).
+  domain: automation
+  author: Julius
+  input:
+    switch_entity:
+      name: Shelly Input Sensor
+      description: Der binary_sensor des Shelly-Inputs (z.B. Input 0–3).
+      selector:
+        entity:
+          domain: binary_sensor
+          integration: shelly
+    light_target:
+      name: Ziel-Lichter (optional)
+      description: Lichter die getoggelt werden sollen.
+      default: {}
+      selector:
+        target:
+          entity:
+            - domain:
+                - light
+    switch_target:
+      name: Ziel-Switches (optional)
+      description: Switches die getoggelt werden sollen.
+      default: {}
+      selector:
+        target:
+          entity:
+            - domain:
+                - switch
+
+mode: single
+
+triggers:
+  - platform: state
+    entity_id: !input switch_entity
+    to: "on"
+  - platform: state
+    entity_id: !input switch_entity
+    to: "off"
+
+actions:
+  - if:
+      - condition: template
+        value_template: "{{ light_target | length > 0 }}"
+    then:
+      - action: light.toggle
+        target: !input light_target
+  - if:
+      - condition: template
+        value_template: "{{ switch_target | length > 0 }}"
+    then:
+      - action: switch.toggle
+        target: !input switch_target
