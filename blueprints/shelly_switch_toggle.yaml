@@ -118,9 +118,15 @@ trigger:
   - platform: state
     entity_id: !input switch_entity
     to: "on"
+    not_from:
+      - unavailable
+      - unknown
   - platform: state
     entity_id: !input switch_entity
     to: "off"
+    not_from:
+      - unavailable
+      - unknown
 
 variables:
   lt: !input light_target
